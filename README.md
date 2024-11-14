@@ -70,6 +70,118 @@ django-admin startproject core
 2. Navigate to the project folder:
 
 ```bash
+cd core
+```
+
+3. Create applications:
+
+- `home` app
+
+```bash
+python manage.py startapp home
+```
+
+- `custom_admin` app
+
+```bash
+python manage.py startapp custom_admin
+```
+
+4. Run the development server to ensure the setup is working:
+
+```bash
+python manage.py runserver
+```
+
+## Step 4: Configure PostgreSQL Database
+
+1.  Create a PostgreSQL database\*\* named `django_db`.
+2.  Configure environment variables\*\* in a `.env` file:
+    - Add `.env` file in the root of your project and add the following:
+
+```env
+DB_NAME=django_db
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+3. Update Django settings to use the .env variables:
+   - Open core/settings.py and add the following at the top:
+
+```python
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# env setup
+load_dotenv()
+
+# Update the `DATABASES` configuration
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
+    }
+}
+```
+
+## Step 5: Create Custom User Model
+
+1. Define the custom user model in home/models.py:
+
+```bash
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+from django.utils import timezone
+
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email field must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(email, password, **extra_fields)
+
+class User(AbstractBaseUser, PermissionsMixin):
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True, max_length=255)
+    role = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+
+    objects = CustomUserManager()
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['name']
+
+    def __str__(self):
+        return self.email
+```
+
+2. Specify the custom user model in `core/settings.py`:
+
+```bash
 AUTH_USER_MODEL = 'home.User'
 ```
 
